@@ -21,3 +21,5 @@ This project implements a complete Cloud Native DevSecOps CI/CD pipeline. A Flas
 ## Authors
 
 Bhumika Deshmukh and Rutuja Awate
+
+Last Updated: Jenkins Automatic Docker Hub Push Test
