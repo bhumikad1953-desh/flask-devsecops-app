@@ -1,6 +1,15 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = "bhumikadesh/flask-devsecops-app"
+        IMAGE_TAG = "v${BUILD_NUMBER}"
+
+        GITOPS_REPO = "https://github.com/bhumikad1953-desh/flask-devsecops-gitops.git"
+        GITOPS_BRANCH = "main"
+
+    }
+
     stages {
 
         stage('Checkout') {
@@ -19,13 +28,14 @@ pipeline {
             steps {
                 script {
                     def scannerHome = tool 'SonarQubeScanner'
+
                     withSonarQubeEnv('SonarQube') {
                         sh """
                         ${scannerHome}/bin/sonar-scanner \
-                          -Dsonar.projectKey=flask-devsecops-app \
-                          -Dsonar.projectName=flask-devsecops-app \
-                          -Dsonar.sources=. \
-                          -Dsonar.python.version=3
+                        -Dsonar.projectKey=flask-devsecops-app \
+                        -Dsonar.projectName=flask-devsecops-app \
+                        -Dsonar.sources=. \
+                        -Dsonar.python.version=3
                         """
                     }
                 }
@@ -34,20 +44,43 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t flask-devsecops-app:v1 .'
-            }
-        }
-
-        stage('Tag Docker Image') {
-            steps {
-                sh 'docker tag flask-devsecops-app:v1 bhumikadesh/flask-devsecops-app:v1'
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
             }
         }
 
         stage('Push Docker Image') {
             steps {
-                sh 'docker push bhumikadesh/flask-devsecops-app:v1'
+                sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
             }
         }
-    }
-}
+
+        stage('Update GitOps Repository') {
+		steps {
+			withCredentials([usernamePassword(
+				credentialsId: 'github-token',
+				usernameVariable: 'GIT_USER',
+				passwordVariable: 'GIT_TOKEN'
+			)]) {
+				sh """
+				rm -rf gitops
+
+				git clone https://${GIT_USER}:${GIT_TOKEN}@github.com/bhumikad1953-desh/flask-devsecops-gitops.git gitops
+
+				cd gitops
+
+				sed -i 's|image:.*|image: ${IMAGE_NAME}:${IMAGE_TAG}|' k8s/deployment.yaml
+
+				git config user.email "jenkins@local"
+				git config user.name "Jenkins"
+
+				git add .
+
+				git commit -m "Updated image to ${IMAGE_TAG}" || true
+
+				git push origin ${GITOPS_BRANCH}
+				"""
+					}
+				}
+			}
+		}
+	}
