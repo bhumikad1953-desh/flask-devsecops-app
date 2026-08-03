@@ -13,4 +13,6 @@ def home():
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
 
-GITHUB_TOKEN = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+import os
+
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
