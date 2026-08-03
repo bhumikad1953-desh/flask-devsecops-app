@@ -1,10 +1,6 @@
 pipeline {
     agent any
 
-    tools {
-        sonarQube 'SonarQubeScanner'
-    }
-
     stages {
 
         stage('Checkout') {
@@ -21,14 +17,17 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh '''
-                    sonar-scanner \
-                      -Dsonar.projectKey=flask-devsecops-app \
-                      -Dsonar.projectName=flask-devsecops-app \
-                      -Dsonar.sources=. \
-                      -Dsonar.python.version=3
-                    '''
+                script {
+                    def scannerHome = tool 'SonarQubeScanner'
+                    withSonarQubeEnv('SonarQube') {
+                        sh """
+                        ${scannerHome}/bin/sonar-scanner \
+                          -Dsonar.projectKey=flask-devsecops-app \
+                          -Dsonar.projectName=flask-devsecops-app \
+                          -Dsonar.sources=. \
+                          -Dsonar.python.version=3
+                        """
+                    }
                 }
             }
         }
