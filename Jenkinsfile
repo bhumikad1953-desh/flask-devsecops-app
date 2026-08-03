@@ -7,7 +7,6 @@ pipeline {
 
         GITOPS_REPO = "https://github.com/bhumikad1953-desh/flask-devsecops-gitops.git"
         GITOPS_BRANCH = "main"
-
     }
 
     stages {
@@ -48,6 +47,16 @@ pipeline {
             }
         }
 
+        stage('Trivy Image Scan') {
+            steps {
+                sh """
+                trivy image \
+                --severity HIGH,CRITICAL \
+                ${IMAGE_NAME}:${IMAGE_TAG}
+                """
+            }
+        }
+
         stage('Push Docker Image') {
             steps {
                 sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
@@ -55,32 +64,43 @@ pipeline {
         }
 
         stage('Update GitOps Repository') {
-		steps {
-			withCredentials([usernamePassword(
-				credentialsId: 'github-token',
-				usernameVariable: 'GIT_USER',
-				passwordVariable: 'GIT_TOKEN'
-			)]) {
-				sh """
-				rm -rf gitops
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'github-token',
+                    usernameVariable: 'GIT_USER',
+                    passwordVariable: 'GIT_TOKEN'
+                )]) {
 
-				git clone https://${GIT_USER}:${GIT_TOKEN}@github.com/bhumikad1953-desh/flask-devsecops-gitops.git gitops
+                    sh """
+                    rm -rf gitops
 
-				cd gitops
+                    git clone https://${GIT_USER}:${GIT_TOKEN}@github.com/bhumikad1953-desh/flask-devsecops-gitops.git gitops
 
-				sed -i 's|image:.*|image: ${IMAGE_NAME}:${IMAGE_TAG}|' k8s/deployment.yaml
+                    cd gitops
 
-				git config user.email "jenkins@local"
-				git config user.name "Jenkins"
+                    sed -i 's|image:.*|image: ${IMAGE_NAME}:${IMAGE_TAG}|' k8s/deployment.yaml
 
-				git add .
+                    git config user.email "jenkins@local"
+                    git config user.name "Jenkins"
 
-				git commit -m "Updated image to ${IMAGE_TAG}" || true
+                    git add .
 
-				git push origin ${GITOPS_BRANCH}
-				"""
-					}
-				}
-			}
-		}
-	}
+                    git commit -m "Updated image to ${IMAGE_TAG}" || true
+
+                    git push origin ${GITOPS_BRANCH}
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline completed successfully!"
+        }
+
+        failure {
+            echo "Pipeline failed. Please check the console output."
+        }
+    }
+}
